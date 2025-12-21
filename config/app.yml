@@ -1,0 +1,35 @@
+# Configuración de Aplicación - Archivo de configuración externa
+# Configuración específica de la aplicación LLM Stack Manager
+
+# Configuración de logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/llm-stack.log"
+  max_size_mb: 10
+  backup_count: 3
+
+# Configuración de UI
+ui:
+  theme: "dark"  # light, dark, auto
+  language: "es"  # es, en
+  show_progress_bars: true
+  auto_refresh_seconds: 30
+
+# Configuración de rendimiento
+performance:
+  max_concurrent_downloads: 1
+  request_timeout_seconds: 30
+  cache_enabled: true
+  cache_ttl_minutes: 60
+
+# Configuración de seguridad
+security:
+  allow_remote_access: false
+  api_key_required: false
+  allowed_hosts: ["localhost", "127.0.0.1"]
+
+# Configuración de desarrollo
+development:
+  debug_mode: false
+  mock_ollama: false  # Para testing sin Ollama real
+  verbose_logging: false

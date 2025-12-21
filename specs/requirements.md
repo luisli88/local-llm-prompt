@@ -33,6 +33,12 @@
 - **Alcance**: Modelo individual o actualización masiva
 - **Estado**: Detiene contenedores temporalmente durante actualización
 
+### RF-08: Detección Automática de Actualizaciones
+- **Descripción**: Verificación automática de versiones más recientes disponibles
+- **Mecánica**: Consulta API de Ollama registry vs versiones locales
+- **Notificaciones**: Indicadores visuales en interfaz de usuario
+- **Acciones**: Actualización manual o automática de modelos
+
 ## 2. Requisitos no funcionales
 
 ### RNF-01: Performance
@@ -79,12 +85,14 @@
 
 ## 4. Configuración Docker Compose
 
-```
-version: '3.8'
+## 4. Modos de Despliegue Soportados
+
+### 🥇 **MODO PRINCIPAL: Single Container** (Recomendado)
+```yaml
 services:
-  ollama-qwen:
+  ollama-single:
     image: ollama/ollama:latest
-    container_name: ollama-qwen
+    container_name: ollama-single
     restart: unless-stopped
     deploy:
       resources:
@@ -99,8 +107,32 @@ services:
       - ollama_models:/root/.ollama
     environment:
       - OLLAMA_NUM_GPU_LAYERS=35
-      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_MAX_LOADED_MODELS=3  # Qwen+DeepSeek+Mistral
+      - OLLAMA_KEEP_ALIVE=5m       # 5min idle → unload
     shm_size: 8gb
+```
+
+**Gestión**: `docker exec ollama-single ollama pull/rm/list`
+
+### 🥈 **MODO LOCAL: Ollama Nativo** (Sin Docker)
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+systemctl --user enable --now ollama
+```
+**Gestión**: `ollama pull/rm/list` directo (menor overhead)
+**Puerto**: 11434 (host local)
+
+### 🥉 **MODO LEGACY: Multi-Container** (Actual)
+**Uso**: Solo si necesitas aislamiento total por modelo
+**Limitación**: 3 contenedores = 3x overhead + complejidad
+
+### Criterios de Selección
+Escenario | Single Container | Local Ollama | Multi-Container |
+|-----------|------------------|--------------|-----------------|
+**Simplicidad** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐ |
+**Aislamiento** | ⭐⭐ | ⭐ | ⭐⭐⭐ |
+**Overhead** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐ |
+**Migración fácil** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ |
 
   ollama-deepseek:
     image: ollama/ollama:latest
@@ -146,8 +178,15 @@ volumes:
   ollama_models:
 ```
 
+## RF-07: Gestión Inteligente de VRAM
+- **Descripción**: Control automático de modelos cargados para RTX 2070 SUPER 8GB
+- **Mecánica**:
+  - Máximo 2 modelos simultáneos (configurable)
+  - `ollama stop <model>` automático para liberar VRAM
+  - Monitoreo continuo de uso GPU
+  - Auto-stop de modelos inactivos
 
-## 4. Interfaz de Usuario y Gestión
+## 5. Interfaz de Usuario y Gestión
 
 ### IU-01: App de Terminal Interactiva
 - **Descripción**: Interfaz de línea de comandos con menú para todas las operaciones

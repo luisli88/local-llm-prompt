@@ -1,27 +1,25 @@
-# Arquitectura del Stack (Docker + Ollama + GPU + SQLite)
+# Arquitectura Simplificada: Ollama Local Nativo
 
 ```mermaid
 graph TB
     subgraph "Host Ubuntu 25.10"
         A[NVIDIA Driver<br/>580.95 + CUDA 13.0]
-        B[Docker Engine<br/>+ NVIDIA Container Toolkit]
+        B[Ollama Local<br/>Instalado nativamente]
         C[RTX 2070 SUPER<br/>8GB VRAM]
     end
 
     subgraph "Interfaz de Usuario"
-        D[Terminal App<br/>main.sh / main.py]
+        D[Terminal App<br/>main.py]
         E[Scripts Ocultos<br/>.scripts/]
     end
 
-    subgraph "Base de Datos Local"
-        L[SQLite Database<br/>.models.db<br/>Estado + Versiones]
+    subgraph "Configuración Local"
+        L[Config YAML<br/>.llm-config.yml<br/>Modelos + Prioridades]
     end
 
-    subgraph "Contenedores Ollama (puertos 11434-11436)"
-        F[Ollama Qwen<br/>11434: Code Completion]
-        G[Ollama DeepSeek<br/>11435: Technical Reasoning]
-        H[Ollama Mistral<br/>11436: Docs/Architecture]
-        I[llama.cpp backend<br/>CUDA acceleration]
+    subgraph "Ollama Runtime Local"
+        F["Ollama Service<br/>Modelos cargados dinámicamente"]
+        I[llama.cpp backend<br/>CUDA acceleration<br/>Gestión directa GPU]
     end
 
     subgraph "Integraciones Desarrollo"
@@ -29,133 +27,100 @@ graph TB
         K[CLI Tools<br/>ollama CLI]
     end
 
-    D -->|Valida dependencias| A
-    D -->|Gestiona contenedores| F
-    D -->|Gestiona contenedores| G
-    D -->|Gestiona contenedores| H
-    D -->|Sincroniza estado| L
-    E -->|Automatización| B
+    D -->|ollama pull/list/rm| F
+    D -->|Lee configuración| L
+    E -->|Setup inicial| B
     A -->|GPU Runtime| B
-    B -.->|--gpus all| F
-    B -.->|--gpus all| G
-    B -.->|--gpus all| H
-    C -->|VRAM + Compute| I
-    L -->|Estado modelos| D
-    F -->|HTTP API| J
-    G -->|HTTP API| J
-    H -->|HTTP API| J
-    F -->|CLI| K
-    G -->|CLI| K
-    H -->|CLI| K
+    C -->|VRAM Directa| I
+    L -->|Config modelos| D
+    F -->|HTTP API 11434| J
+    F -->|CLI directo| K
 
     style A fill:#e1f5fe
     style C fill:#fff3e0
     style D fill:#c8e6c9
     style L fill:#fff9c4
     style F fill:#e8f5e8
-    style G fill:#e8f5e8
-    style H fill:#e8f5e8
 ```
 
-## Componentes Actualizados
+## Arquitectura Simplificada: Ollama Local
 
-### 🗄️ Base de Datos SQLite (.models.db)
-- **Propósito**: Persistencia del estado de modelos y versiones instaladas
-- **Esquema**:
-  ```sql
-  CREATE TABLE models (
-      name TEXT PRIMARY KEY,
-      container_name TEXT,
-      port INTEGER,
-      installed_version TEXT,
-      status TEXT DEFAULT 'inactive',
-      last_updated TEXT
-  );
-  ```
-- **Funciones**:
-  - Sincronización automática con estado real de contenedores
-  - Tracking de versiones instaladas
-  - Estado activo/inactivo por modelo
+### ✅ Ventajas de Ollama Local Nativo
+- **Mínimo Overhead**: Sin Docker = ~50MB RAM vs 200MB+ contenedor
+- **Arranque Instantáneo**: 3-5s vs 10-15s contenedor
+- **GPU Directa**: Mejor afinidad con RTX 2070 SUPER
+- **Simplicidad**: Un comando `ollama pull/rm` directo
+- **Desarrollo Fluido**: Perfecto para iteración rápida
 
-### 🔄 Sincronización de Estado
-- **Mecanismo**: Consulta directa a Docker API para verificar contenedores activos
-- **Frecuencia**: Automática en cada visualización del menú principal
-- **Beneficios**: Información siempre actualizada sin intervención manual
+### 🔄 Gestión de Modelos Directa
+```
+App Python → CLI Directo → ollama pull qwen2.5-coder:7b
+                        → ollama list
+                        → ollama stop deepseek-coder
+```
 
-### 📦 Scripts Ocultos (.scripts/)
-- **model_manager.sh**: Gestión de base de datos y estados
-- **setup.sh**: Instalación inicial del stack
-- **verify-install.sh**: Validación de dependencias y configuración
+### 📋 Configuración Externa (YAML)
+```yaml
+# config/models.yml
+global:
+  ollama_host: "http://localhost:11434"
+  max_loaded_models: 2
+  auto_stop_inactive: true
 
-### 🚀 Funcionalidades Avanzadas
-- **Actualización de Modelos**: Pull automático desde Ollama registry
-- **Gestión de Estado**: Activación/desactivación individual por modelo
-- **Validación Automática**: Verificación de dependencias al inicio
-- **Interfaz Mejorada**: Menú interactivo con indicadores visuales
+models:
+  qwen:
+    name: "qwen2.5-coder:latest"
+    description: "Code completion and programming"
+    category: "coding"
+  deepseek:
+    name: "deepseek-coder:latest"
+    description: "Technical reasoning and analysis"
+    category: "reasoning"
+  mistral:
+    name: "mistral:latest"
+    description: "Documentation and architecture"
+    category: "general"
+```
 
----
+### 🛠️ Componentes Simplificados
 
-## ✅ Estado de Implementación v2.0.0
+#### 1. **OllamaManager** (ollama_manager.py)
+- **Responsabilidades**: Gestión directa de Ollama CLI + actualizaciones automáticas
+- **Métodos**:
+  - `pull_model()`, `list_models()`, `remove_model()`
+  - `get_running_models()`, `stop_model()`
+  - `get_vram_usage()`, `check_model_updates()`
+  - `update_model_if_available()` - Actualización automática
 
-### 🎯 Migración Completada: Bash → Python
+#### 2. **ConfigManager** (config_manager.py)
+- **Responsabilidades**: Carga configuración YAML
+- **Funciones**: Validación, prioridades, metadata modelos
 
-Se ha completado exitosamente la migración de la aplicación de gestión de stack LLM de Bash a Python, proporcionando una solución más robusta, mantenible y precisa.
+#### 3. **CLI Interface** (cli.py)
+- **Responsabilidades**: Menú interactivo simplificado
+- **Características**: Estado real-time, progress bars
 
-#### 📦 Entregables Completados
+### 🚀 Setup Inicial Simplificado
+```bash
+# 1. Instalar Ollama
+curl -fsSL https://ollama.com/install.sh | sh
 
-**Aplicación Python Completa** (`main.py`)
-- ✅ Interfaz CLI moderna con Rich
-- ✅ Gestión inteligente de estado de contenedores
-- ✅ Sincronización automática con base de datos
-- ✅ Validación robusta de dependencias
-- ✅ Funcionalidad completa de gestión de modelos
+# 2. Instalar app Python
+pip install -r requirements.txt
 
-**Arquitectura Modular** (`lib/`)
-- ✅ `DockerManager`: API nativa de Docker
-- ✅ `ModelManager`: Gestión SQLite con SQLAlchemy
-- ✅ `OllamaClient`: Cliente para operaciones con modelos
-- ✅ `Config`: Configuración centralizada
-- ✅ `Utils`: Utilidades del sistema
+# 3. Ejecutar
+python main.py
+```
 
-**Base de Datos SQLite**
-- ✅ Esquema completo para modelos
-- ✅ Sincronización automática DB ↔ Docker
-- ✅ Tracking de versiones y estados
-- ✅ Persistencia de configuraciones
+### 📊 Comparativa Final
 
-**Suite de Pruebas Completa** (`lib/tests.py`)
-- ✅ 13 pruebas unitarias pasando
-- ✅ Cobertura de componentes principales
-- ✅ Mocks para APIs externas
-- ✅ Tests de integración
+| Aspecto | Ollama Local ✅ | Single Container | Multi Container |
+|---------|-----------------|------------------|----------------|
+| **Overhead RAM** | ~50MB | ~200MB | ~600MB |
+| **Arranque** | 3-5s | 10-15s | 30-45s |
+| **GPU Affinity** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Simplicidad** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
+| **Desarrollo** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
 
-#### 🔄 Mejoras Obtenidas
-
-**Precisión Mejorada**
-- APIs nativas de Docker vs parsing de comandos CLI
-- Estado preciso de contenedores y modelos
-- Validación automática de conectividad HTTP
-
-**Robustez Superior**
-- Manejo avanzado de errores y recuperación automática
-- Excepciones específicas y logging detallado
-- Validación de dependencias al inicio
-
-**Mantenibilidad**
-- Arquitectura modular y testable
-- Código Python moderno con type hints
-- Separación clara de responsabilidades
-
-**Experiencia de Usuario**
-- Interfaz moderna con Rich (colores, tablas, progreso)
-- Menú interactivo con navegación fluida
-- Mensajes informativos y estados visuales
-
-#### 🧪 Validación Final
-- ✅ **13/13 pruebas unitarias pasan**
-- ✅ **Funcionalidad completa verificada**
-- ✅ **Interfaz moderna implementada**
-- ✅ **Sincronización automática DB ↔ Docker**
-
-**Estado: COMPLETAMENTE FUNCIONAL** 🚀
+**Conclusión**: Para desarrollo local con RTX 2070 SUPER, **Ollama Local Nativo** es la arquitectura óptima.
 

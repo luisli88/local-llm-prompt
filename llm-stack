@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# LLM Stack Manager Launcher
+# Crea/actualiza venv y ejecuta la aplicación
+
+set -e  # Salir en caso de error
+
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Función para imprimir mensajes coloreados
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✅${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}❌${NC} $1"
+}
+
+# Función para manejar errores
+error_exit() {
+    print_error "$1"
+    exit 1
+}
+
+# Verificar que estamos en el directorio correcto
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || error_exit "No se pudo cambiar al directorio del script"
+
+print_info "Iniciando LLM Stack Manager..."
+print_info "Directorio: $SCRIPT_DIR"
+
+# Verificar Python
+if ! command -v python3 &> /dev/null; then
+    error_exit "Python 3 no está instalado. Instala Python 3.8+ desde https://python.org"
+fi
+
+PYTHON_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
+PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d'.' -f1)
+PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d'.' -f2)
+
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
+    error_exit "Se requiere Python 3.8+. Versión actual: $PYTHON_VERSION"
+fi
+
+print_success "Python $PYTHON_VERSION encontrado"
+
+# Verificar/crear entorno virtual
+if [ ! -d ".venv" ]; then
+    print_info "Creando entorno virtual..."
+    if ! python3 -m venv .venv 2>/dev/null; then
+        error_exit "Error creando entorno virtual. Verifica que python3-venv esté instalado"
+    fi
+    print_success "Entorno virtual creado"
+else
+    print_info "Entorno virtual existente encontrado"
+fi
+
+# Activar entorno virtual
+print_info "Activando entorno virtual..."
+if ! source .venv/bin/activate 2>/dev/null; then
+    error_exit "Error activando entorno virtual"
+fi
+
+# Verificar que el venv funciona
+if [ "$VIRTUAL_ENV" != "$SCRIPT_DIR/.venv" ]; then
+    error_exit "Error: entorno virtual no se activó correctamente"
+fi
+
+# Actualizar pip silenciosamente
+print_info "Actualizando pip..."
+if ! pip install --upgrade pip > /dev/null 2>&1; then
+    print_warning "No se pudo actualizar pip, continuando..."
+fi
+
+# Instalar/actualizar dependencias
+if [ -f "requirements.txt" ]; then
+    print_info "Instalando/actualizando dependencias..."
+    if ! pip install -r requirements.txt > /dev/null 2>&1; then
+        print_warning "Algunas dependencias pueden no haberse instalado correctamente"
+    fi
+    print_success "Dependencias instaladas/actualizadas"
+else
+    error_exit "requirements.txt no encontrado en $SCRIPT_DIR"
+fi
+
+# Verificar que lib/main.py existe
+if [ ! -f "lib/main.py" ]; then
+    error_exit "lib/main.py no encontrado en $SCRIPT_DIR"
+fi
+
+# Ejecutar la aplicación
+print_info "Iniciando aplicación..."
+print_info "Presiona Ctrl+C para salir"
+echo
+
+export PYTHONPATH="$SCRIPT_DIR/lib:$PYTHONPATH"
+exec python lib/main.py "$@"
