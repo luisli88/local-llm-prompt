@@ -1,0 +1,63 @@
+services:
+  ollama-qwen:
+    image: ollama/ollama:latest
+    container_name: ollama-qwen
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_NUM_GPU_LAYERS=35
+      - OLLAMA_MAX_LOADED_MODELS=1
+    shm_size: 8gb
+
+  ollama-deepseek:
+    image: ollama/ollama:latest
+    container_name: ollama-deepseek
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_NUM_GPU_LAYERS=35
+      - OLLAMA_MAX_LOADED_MODELS=1
+    shm_size: 8gb
+
+  ollama-mistral:
+    image: ollama/ollama:latest
+    container_name: ollama-mistral
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "11436:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_NUM_GPU_LAYERS=35
+      - OLLAMA_MAX_LOADED_MODELS=1
+    shm_size: 8gb
+
+volumes:
+  ollama_models:
