@@ -126,7 +126,7 @@ class LLMStackApp:
         self.console.print("  4. 🛑 Desactivar Modelo")
         self.console.print("  5. 📥 Actualizar Modelos")
         self.console.print("  6. 🔄 Verificar Actualizaciones")
-        self.console.print("  7. � Estado del Sistema")
+        self.console.print("  7. 🧾 Estado del Sistema")
         self.console.print("  8. ⚙️  Configuración")
         self.console.print("  0. 🚪 Salir")
         self.console.print()
@@ -254,7 +254,11 @@ class LLMStackApp:
             return False
 
     def _install_ollama(self):
-        """Instala Ollama."""
+        """Instala Ollama.
+
+        En macOS se usa Homebrew (cask preferido). En otros sistemas se usa el
+        instalador oficial (scripts de Ollama).
+        """
         if ollama_manager.check_ollama_installed():
             self._print_info("Ollama ya está instalado")
             return True
@@ -262,13 +266,33 @@ class LLMStackApp:
         self.console.print("📥 Descargando e instalando Ollama...")
 
         try:
-            # Descargar script de instalación
-            result = subprocess.run([
-                'curl', '-fsSL', 'https://ollama.com/install.sh'
-            ], capture_output=True, text=True, check=True)
+            # macOS: usar Homebrew
+            import platform, shutil, os
+            from pathlib import Path as _Path
 
-            # Ejecutar script
-            result2 = subprocess.run(['sh', '-c', result.stdout], check=True)
+            if platform.system() == "Darwin":
+                # Instalar Homebrew si hace falta
+                if not shutil.which("brew"):
+                    self._print_info("Homebrew no encontrado. Instalando Homebrew de forma automática...")
+                    subprocess.run(["/bin/bash", "-c", "$(/usr/bin/env curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"], check=True)
+                    # Intentar añadir brew al PATH si se instaló en una ruta conocida
+                    if _Path("/opt/homebrew/bin/brew").exists():
+                        os.environ["PATH"] = "/opt/homebrew/bin:" + os.environ.get("PATH", "")
+                    elif _Path("/usr/local/bin/brew").exists():
+                        os.environ["PATH"] = "/usr/local/bin:" + os.environ.get("PATH", "")
+
+                # Instalar Ollama via Homebrew (cask preferido)
+                try:
+                    self._print_info("Instalando Ollama con Homebrew (cask preferido)...")
+                    subprocess.run(["brew", "install", "--cask", "ollama"], check=True)
+                except subprocess.CalledProcessError:
+                    self._print_info("Fallo cask; intentando instalar Ollama vía brew normal...")
+                    subprocess.run(["brew", "install", "ollama"], check=True)
+
+            else:
+                # Otros: usar instalador oficial de Ollama
+                result = subprocess.run(['curl', '-fsSL', 'https://ollama.com/install.sh'], capture_output=True, text=True, check=True)
+                subprocess.run(['sh', '-c', result.stdout], check=True)
 
             self._print_success("Ollama instalado exitosamente")
             return True

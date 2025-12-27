@@ -38,6 +38,11 @@ class ConfigManager:
         self.config = self._load_config()
         self.app_config = self._load_app_config()
 
+        # Detectar plataforma y aplicar perfil si corresponde
+        self._detected_platform = None
+        self._platform_profile = {}
+        self._apply_platform_profile()
+
     def get_available_models(self) -> List[str]:
         """Obtiene lista de modelos disponibles en Ollama registry"""
         try:
@@ -80,6 +85,9 @@ class ConfigManager:
             print("📝 Creando configuración por defecto...")
             data = self._get_default_models_config()
             self._save_models_config(data)
+
+        # Guardar el dict crudo para referencias (p. ej. decidir si debemos sobreescribir valores por perfil)
+        self._raw_config = data
 
         return self._parse_config(data)
 
@@ -170,6 +178,69 @@ class ConfigManager:
             auto_stop_inactive=global_config.get('auto_stop_inactive', True),
             inactive_timeout_minutes=global_config.get('inactive_timeout_minutes', 30)
         )
+
+    # -------------------- Platform detection and profiles --------------------
+    def detect_platform(self) -> Dict[str, Any]:
+        """Detecta la plataforma y devuelve un dict con nombre y perfil.
+
+        - Soporta forzar plataforma mediante la variable de entorno `LLM_FORCE_PLATFORM`.
+        - Detecta Apple Silicon (macOS + arm64) y devuelve perfil `apple_m3`.
+        """
+        import platform
+
+        # Permitir forzar plataforma (útil para tests)
+        forced = os.getenv('LLM_FORCE_PLATFORM')
+        if forced:
+            name = forced.lower()
+            if name in ('apple_m3', 'apple-m3', 'apple'):
+                return {
+                    'platform': 'apple_m3',
+                    'profile': {'max_loaded_models': 1, 'memory_unified': True}
+                }
+            return {'platform': name, 'profile': {}}
+
+        system = platform.system()
+        machine = platform.machine()
+
+        # macOS Apple Silicon
+        if system == 'Darwin' and machine and machine.startswith('arm'):
+            return {
+                'platform': 'apple_m3',
+                'profile': {'max_loaded_models': 1, 'memory_unified': True}
+            }
+
+        # Fallback: devolver sistema en minúsculas
+        return {'platform': system.lower(), 'profile': {}}
+
+    def _apply_platform_profile(self) -> None:
+        """Aplica ajustes recomendados según el perfil de plataforma detectado."""
+        detected = self.detect_platform()
+        self._detected_platform = detected.get('platform')
+        self._platform_profile = detected.get('profile', {}) or {}
+
+        # Aplicar overrides básicos
+        if self._platform_profile.get('max_loaded_models'):
+            # Ajustar max_loaded_models si el perfil lo requiere **solo si no fue explícitamente definido** en el archivo de configuración
+            try:
+                raw_global = getattr(self, '_raw_config', {}).get('global', {}) or {}
+
+                if 'max_loaded_models' not in raw_global:
+                    # Solo aplicar cuando la configuración no especifica explícitamente este valor
+                    self.config.max_loaded_models = int(self._platform_profile['max_loaded_models'])
+                    print(f"🔎 Plataforma detectada: {self._detected_platform} — aplicando perfil")
+                else:
+                    # Mantener el valor explícito del usuario
+                    print(f"🔎 Plataforma detectada: {self._detected_platform} — perfil disponible pero se respeta la configuración explícita")
+            except Exception:
+                pass
+
+    def get_detected_platform(self) -> Optional[str]:
+        """Retorna el nombre de la plataforma detectada (e.g. 'apple_m3')"""
+        return self._detected_platform
+
+    def get_platform_profile(self) -> Dict[str, Any]:
+        """Retorna el perfil aplicado para la plataforma detectada"""
+        return self._platform_profile
 
     def _save_config(self, data: Dict[str, Any]) -> None:
         """Guarda la configuración en archivo YAML"""

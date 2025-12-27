@@ -19,7 +19,6 @@ graph TB
 
     subgraph "Ollama Runtime Local"
         F["Ollama Service<br/>Modelos cargados dinámicamente"]
-        I[llama.cpp backend<br/>CUDA acceleration<br/>Gestión directa GPU]
     end
 
     subgraph "Integraciones Desarrollo"

@@ -40,6 +40,10 @@ class OllamaManager:
         self.ollama_host = self.config.ollama_host
         self.max_loaded = self.config.max_loaded_models
 
+        # Backend seleccionado: 'ollama' or 'none'
+        self.backend = 'none'
+        self._detect_backend()
+
     def _run_command(self, command: List[str], timeout: int = 30) -> Tuple[bool, str]:
         """Ejecuta un comando de Ollama y retorna (éxito, output)"""
         try:
@@ -61,6 +65,22 @@ class OllamaManager:
         """Verifica si Ollama está instalado y funcionando"""
         success, output = self._run_command(["ollama", "--version"])
         return success and "ollama version" in output.lower()
+
+    def _detect_backend(self) -> None:
+        """Detecta y selecciona backend disponible: solo Ollama o ninguno"""
+        try:
+            if self.check_ollama_installed():
+                self.backend = 'ollama'
+                print("🔌 Backend seleccionado: Ollama CLI")
+                return
+        except Exception:
+            pass
+        self.backend = 'none'
+        print("⚠️  No se detectó backend de inferencia (solo Ollama soportado)")
+
+    def get_backend(self) -> str:
+        """Retorna el backend seleccionado ('ollama', 'none')"""
+        return self.backend
 
     def check_ollama_running(self) -> bool:
         """Verifica si el servicio Ollama está corriendo"""
@@ -239,7 +259,11 @@ class OllamaManager:
             print("🧹 Liberando VRAM...")
 
             # Obtener modelos por prioridad (menos prioritarios primero)
-            models_by_priority = config_manager.get_models_by_priority()
+            if hasattr(config_manager, 'get_models_by_priority'):
+                models_by_priority = config_manager.get_models_by_priority()
+            else:
+                models_by_priority = list(config_manager.get_models().values())
+
             low_priority_names = [m.name for m in models_by_priority[self.max_loaded:]]
 
             # Detener modelos de baja prioridad que estén corriendo

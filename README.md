@@ -81,36 +81,68 @@ Herramienta especializada para ejecutar y gestionar modelos de lenguaje grandes 
 
 ## 📋 Requisitos del Sistema
 
-### **Plataforma Principal: Linux + NVIDIA** ✅ ACTUALMENTE SOPORTADO
+Esta aplicación soporta **Linux (NVIDIA + CUDA)** y **macOS Apple Silicon (Metal)** como plataformas equivalentes con la misma arquitectura base.
 
-#### Hardware Mínimo
-- **GPU**: NVIDIA RTX 2070 SUPER (8GB VRAM) o superior
-- **CPU**: 6 núcleos, 12 hilos (AMD Ryzen 5 3600XT recomendado)
-- **RAM**: 16GB mínimo, 32GB recomendado
-- **Almacenamiento**: 50GB SSD para modelos
+### Requisitos Base (Ambas Plataformas)
 
-#### Software Requerido
-- **Sistema Operativo**: Ubuntu 24.04+ o Linux compatible
 - **Python**: 3.11+ con venv
-- **Ollama**: Latest stable (instalación nativa)
-- **NVIDIA Drivers**: 580.95+ con CUDA 13.0+
+- **Ollama**: Última versión estable (instalación nativa)
+- **Dependencias Python**: Especificadas en `requirements.txt`
 
-### **🔮 Expansión Futura: macOS Apple Silicon** (M1/M2/M3/M4)
+La instalación y comportamiento en tiempo de ejecución están unificados y centralizados en la aplicación Python (`lib/main.py`).
 
-**Planificado para próxima versión** - La arquitectura modular permite fácil expansión a macOS con procesadores Apple Silicon.
+### Especificaciones por Plataforma
 
-#### Beneficios Esperados
-- ✅ **Alcance expandido**: Soporte para ~30% del mercado de desarrollo
-- ✅ **Usuarios premium**: Desarrolladores con equipos Apple de alto rendimiento
-- ✅ **Validación arquitectura**: Confirma el diseño portable y escalable
+#### Linux (NVIDIA + CUDA)
+- **NVIDIA Drivers**: 580.95+ recomendado
+- **CUDA**: 13.0+
+- **Optimización**: Quantización Q4_K_M para modelos de 7B parameters
+- **Gestión VRAM**: Máximo 2 modelos simultáneos (recomendado para GPUs de 8GB)
+
+#### macOS Apple Silicon (M1/M2/M3/M4+)
+- **Metal**: Aceleración integrada automática
+- **Memoria unificada**: Ajusta `max_loaded_models` según memoria disponible
+- **Configuración**: Perfiles específicos en `config/app.yml` y `config/models.yml`
+- **Recomendación**: Preferir 1 modelo grande o múltiples pequeños según RAM disponible
+
+---
+
+### Instalación de Ollama y Dependencias
+
+El launcher `./llm-stack` maneja solo el entorno virtual Python. Para instalar Ollama y dependencias:
+
+1. **Opción automática**: Ejecuta `./llm-stack` y selecciona "Instalar Dependencias" (opción 2)
+2. **Opción manual**: Instala Ollama según tu plataforma desde https://ollama.ai
+
+Alternativamente, export `LLM_SKIP_INSTALL=1` antes de ejecutar `./llm-stack` para omitir pasos de instalación interactiva.
+
+### Verificación de Requisitos
+
+```bash
+# Validación automática
+./llm-stack  # Selecciona opción 1: "🔍 Validar Instalación Completa"
+
+# Verificación manual
+python3 --version          # Verificar Python 3.11+
+ollama --version           # Verificar Ollama instalado
+```
+
+El sistema detecta automáticamente tu plataforma y ofrece recomendaciones específicas de modelos y límites de memoria.
 
 ### Dependencias Python
+
 ```txt
 rich>=13.7.0        # CLI moderna
 pyyaml>=6.0.0       # Configuración YAML
 requests>=2.31.0    # APIs HTTP
 pytest>=7.0.0       # Testing (opcional)
 ```
+
+---
+
+> **Consejo de Memoria**: 
+> - **Linux/NVIDIA**: Monitorea con `nvidia-smi` durante uso intensivo
+> - **macOS Apple Silicon**: La memoria es unificada; ajusta límites en `config/app.yml` según disponibilidad
 
 ## 🛠️ Instalación y Configuración
 
@@ -136,7 +168,7 @@ chmod +x llm-stack
 
 ### Verificación
 ```bash
-# Para verificar que todo funciona
+# Ejecutar verificación automática
 ./llm-stack
 # Seleccionar opción 1: "🔍 Validar Instalación Completa"
 ```

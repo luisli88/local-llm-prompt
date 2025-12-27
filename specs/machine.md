@@ -2,6 +2,7 @@
 | Componente | Especificación | Relevancia para LLM |
 |---|---|---|
 | CPU | AMD Ryzen 5 3600XT (6C/12T) | Alimenta GPU + tareas auxiliares (preprocesamiento, Docker) |
+
 | GPU | NVIDIA RTX 2070 SUPER (8GB GDDR6) | Principal bottleneck: soporta 7B Q4-Q5, 8B Q4, algunos 13B Q3 |
 | RAM | 32GB DDR4 2666MHz | Suficiente para sistema + Docker + contexto moderado |
 | Almacenamiento | 1TB NVMe (EXT4) + 512GB NVMe | Espacio amplio para múltiples modelos (7B ~4-8GB cada uno) |
@@ -17,7 +18,7 @@
 | Mistral | ~4GB | 4.5GB | 30-40 | Documentation |
 
 ### Estrategias de Gestión VRAM
-- **OLLAMA_MAX_LOADED_MODELS=3**: Máximo 3 modelos simultáneos
+- **OLLAMA_MAX_LOADED_MODELS=2**: Máximo 2 modelos simultáneos (ajustable desde app)
 - **OLLAMA_KEEP_ALIVE=5m**: Auto-unload después de 5min inactividad
 - **Prioridad**: Solo 1 modelo "primary" activo, otros en standby
 - **Swap inteligente**: Activar modelo → desactivar de menor prioridad
@@ -34,3 +35,9 @@
 - **Switching**: `ollama stop <model>` para liberar VRAM antes de activar otro
 - **Monitoring**: `nvidia-smi` para verificar uso real vs estimado
 - **Fallback**: Si VRAM insuficiente, usar local mode (menor overhead GPU)
+
+## 🍎 macOS Apple Silicon — Perfil y recomendaciones
+- **Ejemplo de hardware**: MacBook Air M3 (Apple M3) con **24 GB** de memoria unificada.
+- **Recomendación de uso**: `max_loaded_models: 1` por defecto; preferir modelos 7B quantizados.
+- **Criterio operativo**: Evitar múltiples modelos simultáneos en Apple Silicon a menos que sean muy pequeños (p. ej. <3GB cada uno).
+- **Verificación**: La detección automática aplica el perfil `apple_m3` y ajusta límites de memoria.
